@@ -3,6 +3,7 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 
 //TODO replace Pair with record, on upgrade to java 14
@@ -46,17 +47,49 @@ class Graph{
 	public int num_edges(){
 		return edge_count;
 	}
+
+	//aux functions
+	public double dfs(int curr, HashSet<Integer> target){
+		return dfs_recurv(curr, target, new HashSet<>());
+	}
+
+	private double dfs_recurv(int curr, HashSet<Integer> target, HashSet<Integer> visited){
+		visited.add(curr);
+
+		for (Pair it: edges.get(curr)){
+			//found a target vertex, multiply up the stack of calls
+			if (target.contains(it.k)){
+				return it.v;
+			}
+
+			//this check comes after target check to allow self loops to work
+			if (visited.contains(it.k)){
+				continue;
+			}
+
+			double ret = dfs_recurv(it.k, target, visited);
+			//MAGIC 0.0 is sentinel for no path to a target vertex
+			if (ret != 0.0){
+				return it.v * ret;
+			}
+		}
+
+		return 0.0;
+	}
 }
 
 class Useev{
 	public HashMap<String, Integer> get_units(){
 		List<String> units = List.of(
 			//length shorthand
-			"m", "in", "ft", "mi", "au",
+			"m", "cm", "km", "au", "in", "ft", "mi",
 			//mass shorthand
-			"g", "lb",
+			"g", "kg", "lb",
 			//time shorthand
-			"s", "min", "hr"
+			"s", "min", "hr",
+
+			//special
+			"smoot"
 		);
 
 		HashMap<String, Integer> ret = new HashMap<String, Integer>();
@@ -80,17 +113,23 @@ class Useev{
 		}
 
 		new add("m", "m", 1.0);
-		new add("m", "in", 39.37008);
+		new add("km", "m", 1000.0);
+		new add("au", "m", 149597870700.0);
+		new add("m", "cm", 100.0);
+		new add("in", "cm", 2.54);
 		new add("ft", "in", 12.0);
 		new add("mi", "ft", 5280.0);
-		new add("au", "m", 149597900000.0);
 
 		new add("g", "g", 1.0);
-		new add("lb", "g", 453.5924);
+		new add("kg", "g", 1000.0);
+		new add("lb", "g", 453.59237);
 
 		new add("s", "s", 1.0);
 		new add("min", "s", 60.0);
 		new add("hr", "min", 60.0);
+
+		new add("smoot", "in", 67.0);//inexact
+
 		return ret;
 	}
 
@@ -120,12 +159,25 @@ class Useev{
 
 		//TODO add support for aggregate units
 		//TODO add support for more than one input/output unit
-		//TODO add search with dfs or bfs
 		int in_unit = units.get(input_units[0]);
 		int out_unit = units.get(output_units[0]);
-		for (Pair it: graph.edges.get(in_unit)){
-			if (it.k == out_unit){
-				System.out.print(val * it.v + "\n");
+
+		HashSet<Integer> base_units = new HashSet<>();
+		base_units.add(units.get("m"));
+		base_units.add(units.get("g"));
+		base_units.add(units.get("s"));
+
+		for (int it: base_units){
+			HashSet<Integer> base = new HashSet<>();
+			base.add(it);
+
+			double in = graph.dfs(in_unit, base);
+			double out = graph.dfs(out_unit, base);
+
+			if (in != 0.0 && out != 0.0){
+				System.out.print("dfs in: " + in + "\n");
+				System.out.print("dfs out: " + out + "\n");
+				System.out.print("best ans: " + in / out + "\n");
 				return;
 			}
 		}
